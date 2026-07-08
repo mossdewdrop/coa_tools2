@@ -283,7 +283,7 @@ class COATOOLS2_OT_ExportToJson(bpy.types.Operator, bpy_extras.io_utils.ExportHe
         else:
             local_mat = self.get_bone_transformation(bone)
         bone_scale = local_mat.decompose()[2]
-        bone_scale_2d = [bone_scale[1], bone_scale[1]]
+        bone_scale_2d = [bone_scale[0], bone_scale[1]]
         return bone_scale_2d
 
     def get_relative_bone_pos(self, bone, type):
@@ -332,7 +332,7 @@ class COATOOLS2_OT_ExportToJson(bpy.types.Operator, bpy_extras.io_utils.ExportHe
         bone_euler_rot = local_mat.decompose()[1].to_euler()
 
         degrees = round(math.degrees(bone_euler_rot.y), 2)
-        return -math.radians(degrees)
+        return math.radians(degrees)
 
     def get_relative_mesh_pos(self, parent, obj):
         if isinstance(parent, bpy.types.Bone):
