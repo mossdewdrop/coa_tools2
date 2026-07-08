@@ -44,7 +44,8 @@ from . import constants as CONSTANTS
 
 
 def get_active_tool(mode):  # "EDIT_MESH", "EDIT_ARMATURE", "OBJECT"
-    return bpy.context.workspace.tools.from_space_view3d_mode(mode, create=False).idname
+    tool = bpy.context.workspace.tools.from_space_view3d_mode(mode, create=False)
+    return tool.idname if tool else ""
 
 
 def set_active_tool(self, context, tool_name):
