@@ -1063,17 +1063,17 @@ def change_slot_mesh_data(
     if sync_active:
         for slot2 in obj.coa_tools2.slot:
             if slot != slot2 and slot2.active:
-                object.__setattr__(slot2, "_lock_active_update", True)
+                slot2["_lock_active_update"] = True
                 try:
                     slot2.active = False
                 finally:
-                    object.__setattr__(slot2, "_lock_active_update", False)
+                    slot2["_lock_active_update"] = False
             elif slot == slot2 and not slot2.active:
-                object.__setattr__(slot2, "_lock_active_update", True)
+                slot2["_lock_active_update"] = True
                 try:
                     slot2.active = True
                 finally:
-                    object.__setattr__(slot2, "_lock_active_update", False)
+                    slot2["_lock_active_update"] = False
 
     if "coa_base_sprite" in obj.modifiers:
         hide_base_sprite = bool(slot.mesh.coa_tools2.hide_base_sprite)
