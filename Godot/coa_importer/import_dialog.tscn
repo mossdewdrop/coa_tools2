@@ -1,180 +1,119 @@
-[gd_scene format=1]
+[gd_scene format=3 uid="uid://dfpep6j3xq5md"]
 
-[node name="Panel" type="ConfirmationDialog"]
+[node name="Panel" type="ConfirmationDialog" unique_id=2028165861]
+oversampling_override = 1.0
+title = "Import Cutout Animation File"
+initial_position = 2
+size = Vector2i(982, 606)
+dialog_hide_on_ok = false
 
-margin/right = 982.0
-margin/bottom = 606.0
-focus/ignore_mouse = false
-focus/stop_mouse = false
-size_flags/horizontal = 2
-size_flags/vertical = 2
-popup/exclusive = false
-window/title = "Import Cutout Animation File"
-dialog/hide_on_ok = false
-__meta__ = { "__editor_plugin_screen__":"Script" }
+[node name="Content" type="Control" parent="." unique_id=704781513]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -49.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="path_source_file" type="Tree" parent="."]
-
-margin/left = 194.0
-margin/top = 41.0
-margin/right = 938.0
-margin/bottom = 64.0
-focus/ignore_mouse = true
-focus/stop_mouse = false
-size_flags/horizontal = 2
-size_flags/vertical = 2
-
-[node name="label" type="Label" parent="path_source_file"]
-
-margin/left = 10.0
-margin/top = 3.0
-margin/right = 737.0
-margin/bottom = 20.0
-focus/ignore_mouse = true
-focus/stop_mouse = true
-size_flags/horizontal = 2
-valign = 1
-percent_visible = 1.0
-lines_skipped = 0
-max_lines_visible = -1
-
-[node name="path_destination_file" type="Tree" parent="."]
-
-margin/left = 194.0
-margin/top = 81.0
-margin/right = 938.0
-margin/bottom = 104.0
-focus/ignore_mouse = true
-focus/stop_mouse = false
-size_flags/horizontal = 2
-size_flags/vertical = 2
-
-[node name="label" type="Label" parent="path_destination_file"]
-
-margin/left = 10.0
-margin/top = 3.0
-margin/right = 737.0
-margin/bottom = 20.0
-focus/ignore_mouse = true
-focus/stop_mouse = true
-size_flags/horizontal = 2
-valign = 1
-percent_visible = 1.0
-lines_skipped = 0
-max_lines_visible = -1
-
-[node name="button_source" type="Button" parent="."]
-
-margin/left = 44.0
-margin/top = 39.0
-margin/right = 197.0
-margin/bottom = 66.0
-focus/ignore_mouse = false
-focus/stop_mouse = true
-size_flags/horizontal = 2
-size_flags/vertical = 2
-toggle_mode = false
+[node name="button_source" type="Button" parent="Content" unique_id=487018350]
+layout_mode = 0
+offset_left = 44.0
+offset_top = 39.0
+offset_right = 197.0
+offset_bottom = 66.0
 text = "Source File"
-flat = false
 
-[node name="button_destination" type="Button" parent="."]
+[node name="path_source_file" type="Tree" parent="Content" unique_id=1587977705]
+layout_mode = 0
+offset_left = 207.0
+offset_top = 41.0
+offset_right = 938.0
+offset_bottom = 64.0
 
-margin/left = 44.0
-margin/top = 79.0
-margin/right = 197.0
-margin/bottom = 106.0
-focus/ignore_mouse = false
-focus/stop_mouse = true
-size_flags/horizontal = 2
-size_flags/vertical = 2
-toggle_mode = false
+[node name="label" type="Label" parent="Content/path_source_file" unique_id=12692814]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 3.0
+offset_right = -10.0
+offset_bottom = -3.0
+grow_horizontal = 2
+grow_vertical = 2
+vertical_alignment = 1
+
+[node name="button_destination" type="Button" parent="Content" unique_id=171266003]
+layout_mode = 0
+offset_left = 44.0
+offset_top = 79.0
+offset_right = 197.0
+offset_bottom = 106.0
 text = "Destination File"
-flat = false
 
-[node name="json_info" type="Tree" parent="."]
+[node name="path_destination_file" type="Tree" parent="Content" unique_id=1673964265]
+layout_mode = 0
+offset_left = 207.0
+offset_top = 81.0
+offset_right = 938.0
+offset_bottom = 104.0
 
-margin/left = 43.0
-margin/top = 151.0
-margin/right = 939.0
-margin/bottom = 527.0
-focus/ignore_mouse = true
-focus/stop_mouse = false
-size_flags/horizontal = 2
-size_flags/vertical = 2
+[node name="label" type="Label" parent="Content/path_destination_file" unique_id=1744659623]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 3.0
+offset_right = -10.0
+offset_bottom = -3.0
+grow_horizontal = 2
+grow_vertical = 2
+vertical_alignment = 1
 
-[node name="text" type="RichTextLabel" parent="json_info"]
-
-anchor/right = 1
-anchor/bottom = 1
-margin/left = 10.0
-margin/top = 10.0
-margin/right = 10.0
-margin/bottom = 11.0
-focus/ignore_mouse = false
-focus/stop_mouse = false
-size_flags/horizontal = 2
-size_flags/vertical = 2
-bbcode/enabled = false
-bbcode/bbcode = ""
-visible_characters = -1
-
-[node name="check_merge_scenes" type="CheckBox" parent="."]
-
-margin/left = 44.0
-margin/top = 121.0
-margin/right = 70.0
-margin/bottom = 143.0
-hint/tooltip = "If checked, resource and destination scene get merged. \nCustom Nodes and Animations will be preserved in the destination scene. \n\nOtherwise destination scene gets overwritten."
-focus/ignore_mouse = false
-focus/stop_mouse = true
-size_flags/horizontal = 2
-size_flags/vertical = 2
-toggle_mode = true
-is_pressed = true
+[node name="check_merge_scenes" type="CheckBox" parent="Content" unique_id=695860604]
+layout_mode = 0
+offset_left = 44.0
+offset_top = 121.0
+offset_right = 320.0
+offset_bottom = 145.0
+button_pressed = true
 text = "Merge Source and Destination Scene"
-flat = true
-align = 0
 
-[node name="file_source" type="FileDialog" parent="."]
+[node name="json_info" type="Tree" parent="Content" unique_id=1450528568]
+layout_mode = 0
+offset_left = 43.0
+offset_top = 151.0
+offset_right = 939.0
+offset_bottom = 527.0
 
-visibility/visible = false
-margin/right = 982.0
-margin/bottom = 606.0
-focus/ignore_mouse = false
-focus/stop_mouse = true
-size_flags/horizontal = 2
-size_flags/vertical = 2
-popup/exclusive = true
-window/title = "Save a File"
-dialog/hide_on_ok = false
+[node name="text" type="RichTextLabel" parent="Content/json_info" unique_id=372459787]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="file_destination" type="FileDialog" parent="."]
+[node name="file_source" type="FileDialog" parent="." unique_id=21111023]
+initial_position = 2
+size = Vector2i(982, 606)
 
-visibility/visible = false
-margin/right = 982.0
-margin/bottom = 606.0
-focus/ignore_mouse = false
-focus/stop_mouse = true
-size_flags/horizontal = 2
-size_flags/vertical = 2
-popup/exclusive = true
-window/title = "Save a File"
-dialog/hide_on_ok = false
+[node name="file_destination" type="FileDialog" parent="." unique_id=1298764282]
+initial_position = 2
+size = Vector2i(982, 606)
 
-[node name="warning_dialog" type="AcceptDialog" parent="."]
-
-visibility/visible = false
-margin/left = 326.0
-margin/top = 211.0
-margin/right = 611.0
-margin/bottom = 365.0
-focus/ignore_mouse = false
-focus/stop_mouse = true
-size_flags/horizontal = 2
-size_flags/vertical = 2
-popup/exclusive = true
-window/title = "Warning"
-dialog/text = "Please select Source and Destination File"
-dialog/hide_on_ok = true
-
-
+[node name="warning_dialog" type="AcceptDialog" parent="." unique_id=889607932]
+oversampling_override = 1.0
+title = "Warning"
+initial_position = 2
+size = Vector2i(331, 154)
+dialog_text = "Please select Source and Destination File"
