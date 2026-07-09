@@ -1741,6 +1741,9 @@ class COATOOLS2_OT_DragonBonesExport(bpy.types.Operator):
         self.get_init_state(context)
         self.scene = context.scene
 
+        ### Switch to NO ACTION to ensure clean initial state for export data
+        self.sprite_object.coa_tools2.anim_collections_index = 0
+
         ### set animation mode to action
         coa_nla_mode = str(self.scene.coa_tools2.nla_mode)
         self.scene.coa_tools2.nla_mode = "ACTION"
