@@ -363,6 +363,11 @@ def get_bone_with_most_influence(self, sprite):
             if total_weight > max_weight:
                 max_weight = float(total_weight)
                 bone = self.armature.data.bones[v_group.name]
+
+    ### fallback: check if sprite is directly parented to a bone (parent_bone)
+    if bone is None and sprite.parent_bone in self.armature.data.bones:
+        bone = self.armature.data.bones[sprite.parent_bone]
+
     return bone
 
 
@@ -373,8 +378,21 @@ def get_slot_data(self, sprites):
         if sprite.type == "MESH":
             slot = OrderedDict()
             slot["name"] = sprite.name
-            if len(sprite.data.vertices) != 4:
-                slot["parent"] = self.sprite_object.name  # sprite.parent.name
+            ### Count effective vertices excluding coa_base_sprite.
+            ### Image sprites (4-vertex after base removal) need bone parent for correct animation.
+            n_verts = len(sprite.data.vertices)
+            if "coa_base_sprite" in sprite.vertex_groups:
+                base_vg_idx = sprite.vertex_groups["coa_base_sprite"].index
+                base_count = 0
+                for vert in sprite.data.vertices:
+                    for g in vert.groups:
+                        if g.group == base_vg_idx:
+                            base_count += 1
+                            break
+                n_verts -= base_count
+
+            if n_verts != 4:
+                slot["parent"] = self.sprite_object.name
             else:
                 bone_parent = get_bone_with_most_influence(self, sprite)
                 if bone_parent != None:
@@ -484,10 +502,11 @@ def delete_non_deform_bones(self, armature, sprites):
         has_children = len(bone.children) > 0
 
         if (
-            (not is_deform_bone and is_driver)
-            or (not is_deform_bone and is_const_target)
-            or (not is_deform_bone and not has_children)
-            or (not is_deform_bone and not bone.use_deform)
+            not is_deform_bone
+            and not is_driver
+            and not is_const_target
+            and not has_children
+            and not bone.use_deform
         ):
             armature.data.edit_bones.remove(armature.data.edit_bones[bone.name])
 
