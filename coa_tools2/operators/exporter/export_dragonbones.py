@@ -615,6 +615,11 @@ def get_skin_slot(self, sprite, armature, scale, slot_data=None):
     context.collection.objects.link(sprite)
     context.view_layer.objects.active = sprite
 
+    ### Prevent depsgraph handler from resetting SLOT mesh data
+    original_coa_type = sprite.coa_tools2.type
+    if original_coa_type == "SLOT":
+        sprite.coa_tools2.type = "MESH"
+
     ### normalize weights
     normalize_weights(sprite, armature, 0.0)
     for area in context.screen.areas:
@@ -743,7 +748,32 @@ def get_skin_slot(self, sprite, armature, scale, slot_data=None):
                     1.0 / atlas_data[sprite_data_name]["output_scale"], 2
                 )
 
+    elif len(sprite.data.vertices) == 4:
+        ### write sprite transform data without armature
+        sprite_center_pos = get_mesh_center(sprite, 1.0)
+        sprite_pos_final = sprite_center_pos * scale
+        sprite_pos_final = sprite_pos_final.zxy
+        angle = 0
+
+        display_data["transform"] = OrderedDict()
+        display_data["transform"]["x"] = round(sprite_pos_final.y, 3)
+        display_data["transform"]["y"] = round(-sprite_pos_final.x, 3)
+
+        if angle != 0:
+            display_data["transform"]["skX"] = -round(angle, 2)
+            display_data["transform"]["skY"] = -round(angle, 2)
+        if sprite_data_name in atlas_data and atlas_data[sprite_data_name]["output_scale"] != 1.0:
+            display_data["transform"]["scX"] = round(
+                1.0 / atlas_data[sprite_data_name]["output_scale"], 2
+            )
+            display_data["transform"]["scY"] = round(
+                1.0 / atlas_data[sprite_data_name]["output_scale"], 2
+            )
+
     bpy.ops.object.mode_set(mode="OBJECT")
+
+    if original_coa_type == "SLOT":
+        sprite.coa_tools2.type = original_coa_type
 
     # bpy.data.objects.remove(sprite,do_unlink=True)
     return display_data
