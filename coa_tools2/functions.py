@@ -306,62 +306,41 @@ def set_weights(self, context, obj):
 
 
 def hide_base_sprite(obj):
-    context = bpy.context
     if obj is None or obj.type != "MESH" or "coa_base_sprite" not in obj.vertex_groups:
         return
 
-    active_object_before = context.view_layer.objects.active
-    selected_objects_before = [selected.name for selected in context.selected_objects]
-    orig_mode = obj.mode
+    me = obj.data
+    v_group_idx = obj.vertex_groups["coa_base_sprite"].index
 
-    try:
-        for selected in context.selected_objects:
-            selected.select_set(False)
-        obj.select_set(True)
-        context.view_layer.objects.active = obj
+    vertex_idxs = set()
+    for i, vert in enumerate(me.vertices):
+        for g in vert.groups:
+            if g.group == v_group_idx:
+                vertex_idxs.add(i)
+                break
 
-        bpy.ops.object.mode_set(mode="OBJECT")
-        bpy.ops.object.mode_set(mode="EDIT")
-        me = obj.data
-        bm = bmesh.from_edit_mesh(me)
-        bm.verts.ensure_lookup_table()
+    for idx in vertex_idxs:
+        vert = me.vertices[idx]
+        vert.hide = True
+        vert.select = False
 
-        vertex_idxs = []
-        v_group_idx = obj.vertex_groups["coa_base_sprite"].index
-        for i, vert in enumerate(obj.data.vertices):
-            for g in vert.groups:
-                if g.group == v_group_idx:
-                    vertex_idxs.append(i)
+    for edge in me.edges:
+        if edge.vertices[0] in vertex_idxs or edge.vertices[1] in vertex_idxs:
+            edge.hide = True
+            edge.select = False
 
-        for idx in vertex_idxs:
-            vert = bm.verts[idx]
-            vert.hide = True
-            vert.select = False
-            for edge in vert.link_edges:
-                edge.hide = True
-                edge.select = False
-            for face in vert.link_faces:
-                face.hide = obj.data.coa_tools2.hide_base_sprite
+    hide_faces = me.coa_tools2.hide_base_sprite
+    for face in me.polygons:
+        for v_idx in face.vertices:
+            if v_idx in vertex_idxs:
+                face.hide = hide_faces
                 face.select = False
+                break
 
-        if "coa_base_sprite" in obj.modifiers:
-            mod = obj.modifiers["coa_base_sprite"]
-            mod.show_viewport = obj.data.coa_tools2.hide_base_sprite
-            mod.show_render = obj.data.coa_tools2.hide_base_sprite
-
-        bmesh.update_edit_mesh(me)
-        bpy.ops.object.mode_set(mode=orig_mode)
-    finally:
-        for selected in context.selected_objects:
-            selected.select_set(False)
-        for name in selected_objects_before:
-            if name in bpy.data.objects:
-                bpy.data.objects[name].select_set(True)
-        if (
-            active_object_before is not None
-            and active_object_before.name in bpy.data.objects
-        ):
-            context.view_layer.objects.active = bpy.data.objects[active_object_before.name]
+    if "coa_base_sprite" in obj.modifiers:
+        mod = obj.modifiers["coa_base_sprite"]
+        mod.show_viewport = me.coa_tools2.hide_base_sprite
+        mod.show_render = me.coa_tools2.hide_base_sprite
 
 
 def get_uv_from_vert(uv_layer, v):

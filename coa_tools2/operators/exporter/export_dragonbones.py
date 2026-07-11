@@ -284,6 +284,38 @@ def uv_from_vert_first(uv_layer, v):
     return None
 
 
+def validate_export_mesh(mesh, obj_name):
+    """Check mesh for UV/geometry issues that would cause atlas generation to fail."""
+    warnings = []
+    if mesh is None:
+        warnings.append("mesh data is None")
+        return warnings
+
+    if len(mesh.uv_layers) == 0:
+        warnings.append("no UV layers")
+
+    if len(mesh.polygons) == 0:
+        warnings.append("no faces (empty mesh)")
+
+    # Use bmesh to check isolated vertices (verts with no link_loops)
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        isolated_count = 0
+        for v in bm.verts:
+            if not v.link_loops:
+                isolated_count += 1
+        if isolated_count > 0:
+            warnings.append(
+                f"{isolated_count} isolated vertices (not connected to any face)"
+            )
+    finally:
+        bm.free()
+
+    return warnings
+
+
 ### get uv information
 def get_uv_data(bm):
     uvs = []
@@ -296,6 +328,8 @@ def get_uv_data(bm):
     right = 1
     for vert in bm.verts:
         uv_first = uv_from_vert_first(uv_layer, vert)
+        if uv_first is None:
+            continue
         for i, val in enumerate(uv_first):
             if i == 0:
                 left = max(left, val)
@@ -308,6 +342,8 @@ def get_uv_data(bm):
     ### get uv coordinates and map them from 0 to 1 to total dimension that have been calculated before
     for vert in bm.verts:
         uv_first = uv_from_vert_first(uv_layer, vert)
+        if uv_first is None:
+            continue
         for i, val in enumerate(uv_first):
             if i == 1:
                 value = -val + height
@@ -1891,6 +1927,54 @@ class COATOOLS2_OT_DragonBonesExport(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class COATOOLS2_OT_ValidateExportMeshes(bpy.types.Operator):
+    bl_idname = "coa_tools2.validate_export_meshes"
+    bl_label = "Validate Export Meshes"
+    bl_description = "Check all sprite meshes for UV/geometry issues before export"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        sprite_object = get_sprite_object(context.active_object)
+        if sprite_object is None:
+            self.report({"ERROR"}, "No COA Tools sprite object found.")
+            return {"CANCELLED"}
+
+        sprites = get_children(context, sprite_object, [])
+        all_issues = []
+
+        for sprite in sprites:
+            if sprite.type != "MESH":
+                continue
+            if sprite.coa_tools2.type == "MESH":
+                issues = validate_export_mesh(sprite.data, sprite.name)
+                if issues:
+                    all_issues.append(
+                        f"'{sprite.name}': {', '.join(issues)}"
+                    )
+            elif sprite.coa_tools2.type == "SLOT":
+                for slot in sprite.coa_tools2.slot:
+                    slot_mesh = slot.mesh
+                    slot_name = slot.name if slot else "None"
+                    if slot_mesh is None:
+                        all_issues.append(
+                            f"'{sprite.name}' slot '{slot_name}': no mesh assigned"
+                        )
+                        continue
+                    issues = validate_export_mesh(slot_mesh, f"{sprite.name}/{slot_name}")
+                    if issues:
+                        all_issues.append(
+                            f"'{sprite.name}' slot '{slot_name}': {', '.join(issues)}"
+                        )
+
+        if all_issues:
+            msg = "Export mesh validation failed:\n" + "\n".join(all_issues)
+            self.report({"ERROR"}, msg)
+            return {"CANCELLED"}
+
+        self.report({"INFO"}, "All export meshes are valid.")
+        return {"FINISHED"}
+
+
 class COATOOLS2_PT_ExportPanel(bpy.types.Panel):
     bl_idname = "COATOOLS2_PT_export_panel"
     bl_label = "COA Export Panel"
@@ -1949,6 +2033,7 @@ class COATOOLS2_PT_ExportPanel(bpy.types.Panel):
             op.project_name = str(self.scene.coa_tools2.project_name).lower()
 
         elif self.scene.coa_tools2.runtime_format == "DRAGONBONES":
+            col.operator("coa_tools2.validate_export_meshes", text="Validate Meshes")
             op = col.operator("coa_tools2.export_dragon_bones", text="Export")
 
 
@@ -2064,6 +2149,21 @@ def generate_texture_atlas(
         bpy.ops.object.mode_set(mode="OBJECT")
         vg.add([v.index for v in dupli_sprite.data.vertices], 1.0, 'REPLACE')
 
+    ### Validate meshes before atlas generation to catch issues early
+    has_issues = False
+    for dupli_sprite, vg_name in pending_vg:
+        issues = validate_export_mesh(dupli_sprite.data, dupli_sprite.name)
+        if issues:
+            msg = f"mesh '{dupli_sprite.name}' (slot '{vg_name}') issues: {', '.join(issues)}"
+            print(f"COA WARNING: {msg}")
+            self.report({"WARNING"}, msg)
+            has_issues = True
+    if has_issues:
+        self.report(
+            {"WARNING"},
+            "Atlas generation may fail or produce incorrect results due to the above mesh issues."
+        )
+
     img_atlas, tex_atlas_obj, atlas = TextureAtlasGenerator.generate_uv_layout(
         name="COA_UV_ATLAS",
         objects=context.selected_objects,
@@ -2113,6 +2213,8 @@ def generate_texture_atlas(
         for vert in bm.verts:
             if vert.select:
                 uv = uv_from_vert_first(uv_layer, vert)
+                if uv is None:
+                    continue
                 x = min(uv[0], x)
                 y = min(1 - uv[1], y)
                 width = max(uv[0], width)
