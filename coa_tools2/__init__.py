@@ -277,7 +277,6 @@ classes = (
     change_alpha_mode.COATOOLS2_OT_ChangeTextureInterpolationMode,
     # exporter
     export_dragonbones.COATOOLS2_OT_DragonBonesExport,
-    export_dragonbones.COATOOLS2_OT_ValidateExportMeshes,
     export_dragonbones.COATOOLS2_PT_ExportPanel,
     export_creature.COATOOLS2_OT_CreatureExport,
     export_json.COATOOLS2_OT_ExportToJson,
