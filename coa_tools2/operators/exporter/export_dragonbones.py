@@ -612,6 +612,14 @@ def get_skin_slot(self, sprite, armature, scale, slot_data=None):
         sprite_data = slot_data.copy()
     sprite = sprite.copy()
     sprite.data = sprite_data
+
+    ### Prevent depsgraph_update_post handler (update_properties) from resetting
+    ### mesh data on SLOT-type duplicates (it would set obj.data = slot[slot_index].mesh,
+    ### discarding the per-slot mesh we assigned above).
+    original_coa_type = sprite.coa_tools2.type
+    if original_coa_type == "SLOT":
+        sprite.coa_tools2.type = "MESH"
+
     context.collection.objects.link(sprite)
     context.view_layer.objects.active = sprite
 
@@ -671,7 +679,7 @@ def get_skin_slot(self, sprite, armature, scale, slot_data=None):
                 display_data["height"] = atlas_data[sprite_data_name]["height"]
 
         verts = get_mixed_vertex_data(sprite)
-        vert_coords_default[sprite_name] = verts
+        vert_coords_default[sprite_data_name] = verts
         display_data["vertices"] = convert_vertex_data_to_pixel_space(verts)
 
         bm = bmesh.from_edit_mesh(sprite.data)
@@ -1186,7 +1194,6 @@ def get_animation_data(self, sprite_object, armature, armature_orig):
             SHAPEKEY_ANIMATION = {}
             for i in range(anim.frame_end + 1):
                 frame = anim.frame_end - i
-                slot_data = None
                 for slot in self.sprites:
                     if slot.type == "MESH":
                         slot_data = []
@@ -1195,20 +1202,20 @@ def get_animation_data(self, sprite_object, armature, armature_orig):
                         elif slot.coa_tools2.type == "SLOT":
                             for slot2 in slot.coa_tools2.slot:
                                 slot_data.append(tmp_slots_data[slot2.mesh.name])
-                if slot_data != None:
-                    for item in slot_data:
-                        data = item["data"]
-                        data_name = item["name"]
 
-                        key_blocks = []
-                        if data.shape_keys != None:
-                            for key in data.shape_keys.key_blocks:
-                                key_blocks.append(key.name)
-                        if property_key_on_frame(
-                            data, key_blocks, frame, type="SHAPEKEY"
-                        ):
-                            SHAPEKEY_ANIMATION[slot.name] = True
-                            break
+                        for item in slot_data:
+                            data = item["data"]
+                            data_name = item["name"]
+
+                            key_blocks = []
+                            if data.shape_keys != None:
+                                for key in data.shape_keys.key_blocks:
+                                    key_blocks.append(key.name)
+                            if property_key_on_frame(
+                                data, key_blocks, frame, type="SHAPEKEY"
+                            ):
+                                SHAPEKEY_ANIMATION[slot.name] = True
+                                break
 
             ### append all bones to list
             bone_keyframe_duration = {}
@@ -1584,7 +1591,7 @@ def get_animation_data(self, sprite_object, armature, armature_orig):
                                     data, key_blocks, frame, type="SHAPEKEY"
                                 ) or (
                                     frame in [0, anim.frame_end]
-                                    and data_name in SHAPEKEY_ANIMATION
+                                    and slot.name in SHAPEKEY_ANIMATION
                                 ):  # or bake_anim:
                                     ffd_data = {}
                                     ffd_data["duration"] = ffd_keyframe_duration[
@@ -1605,7 +1612,7 @@ def get_animation_data(self, sprite_object, armature, armature_orig):
                                     for i, co in enumerate(verts):
                                         verts_relative.append(
                                             Vector(co)
-                                            - Vector(vert_coords_default[slot.name][i])
+                                            - Vector(vert_coords_default[data_name][i])
                                         )
 
                                     ffd_data["vertices"] = (
