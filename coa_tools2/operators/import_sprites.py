@@ -669,6 +669,7 @@ class COATOOLS2_OT_ReImportSprite(bpy.types.Operator, ImportHelper):
                     break
         if not sprite_found:
             img = bpy.data.images.load(self.filepath)
+            prev_img_size = img.size[:]
 
         scale = functions.get_addon_prefs(context).sprite_import_export_scale
         if self.name in bpy.data.objects:
