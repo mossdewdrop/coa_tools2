@@ -267,6 +267,12 @@ class COATOOLS2_OT_LoadJsonData(bpy.types.Operator):
             ("ADD", "Add as New", "Add as New", "FORWARD", 1),
         )
     )
+    update_sprite_name: BoolProperty(
+        name="Update Sprite Name",
+        description="Update the Sprite Object name from JSON data. "
+        "Disable this to keep the current object name and preserve animation data.",
+        default=True,
+    )
 
     @classmethod
     def poll(cls, context):
@@ -280,6 +286,8 @@ class COATOOLS2_OT_LoadJsonData(bpy.types.Operator):
 
         row = layout.row()
         row.prop(self, "mode", expand=True)
+        row = layout.row()
+        row.prop(self, "update_sprite_name")
         col = layout.column()
         box = col.box()
         box.prop(self, "active_all", text="Import All")
@@ -315,7 +323,7 @@ class COATOOLS2_OT_LoadJsonData(bpy.types.Operator):
 
         sprite_object = functions.get_sprite_object(context.active_object)
 
-        if "name" in sprite_data:
+        if "name" in sprite_data and self.update_sprite_name:
             sprite_object.name = sprite_data["name"]
 
         if "nodes" in sprite_data:
