@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inkscape-extension xmlns="http://www.inkscape.org/namespace/inkscape/extension">
+    <name>COA Exporter</name>
+    <id>org.inkscape.coa_export</id>
+
+    <!-- Export path and filename settings -->
+    <param name="export_path" type="path" mode="folder" gui-text="Export save path">~/</param>
+    <param name="export_name" type="string" gui-text="Export object name / JSON filename">Actor_Goblin</param>
+
+    <!-- Naming and resolution settings -->
+    <param name="suffix" type="string" gui-text="Export name suffix (leave empty for none)"></param>
+    <param name="dpi" type="int" min="1" max="1200" gui-text="DPI (image resolution)">96</param>
+
+    <!-- Whether to overwrite files -->
+    <param name="overwrite" type="bool" gui-text="Overwrite existing files by default">true</param>
+
+    <label>Note: This extension batch-exports currently selected objects into a "sprites" folder under the specified path, and generates a JSON metadata file.</label>
+
+    <effect needs-live-preview="false">
+        <object-type>all</object-type>
+        <effects-menu>
+            <submenu name="Export"/>
+        </effects-menu>
+    </effect>
+
+    <script>
+        <command location="inx" interpreter="python">coa_export.py</command>
+    </script>
+</inkscape-extension>
