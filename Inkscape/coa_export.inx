@@ -3,18 +3,18 @@
     <name>COA Exporter</name>
     <id>org.inkscape.coa_export</id>
 
-    <!-- Export path and filename settings -->
-    <param name="export_path" type="path" mode="folder" gui-text="Export save path">~/</param>
-    <param name="export_name" type="string" gui-text="Export object name / JSON filename">Actor_Goblin</param>
+    <!-- 导出路径与文件名设置 -->
+    <param name="export_path" type="path" mode="folder" gui-text="导出保存路径">~/</param>
+    <param name="export_name" type="string" gui-text="导出对象名/JSON文件名">Actor_Goblin</param>
 
-    <!-- Naming and resolution settings -->
-    <param name="suffix" type="string" gui-text="Export name suffix (leave empty for none)"></param>
-    <param name="dpi" type="int" min="1" max="1200" gui-text="DPI (image resolution)">96</param>
+    <!-- 命名与分辨率设置 -->
+    <param name="suffix" type="string" gui-text="导出命名的后缀 (留空则无)"></param>
+    <param name="dpi" type="int" min="1" max="1200" gui-text="DPI (图像分辨率)">96</param>
 
-    <!-- Whether to overwrite files -->
-    <param name="overwrite" type="bool" gui-text="Overwrite existing files by default">true</param>
+    <!-- 是否覆盖文件 -->
+    <param name="overwrite" type="bool" gui-text="默认覆盖已有文件">true</param>
 
-    <label>Note: This extension batch-exports currently selected objects into a "sprites" folder under the specified path, and generates a JSON metadata file.</label>
+    <label>提示：该插件会批量导出当前选中的对象到指定路径下的 "sprites" 文件夹，并生成一份 JSON 格式的元数据文件。</label>
 
     <effect needs-live-preview="false">
         <object-type>all</object-type>

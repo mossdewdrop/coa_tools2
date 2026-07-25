@@ -4,6 +4,8 @@
 import os
 import re
 import json
+import uuid
+import filecmp
 import tempfile
 import subprocess
 import shutil
@@ -21,17 +23,17 @@ class BatchExportMetadata(inkex.EffectExtension):
         pars.add_argument("--overwrite", type=inkex.Boolean, default=True)
 
     def find_inkscape_bin(self):
-        # 1. Try environment variable first
+        # 1. 优先尝试环境变量
         bin_path = os.environ.get("INKSCAPE_COMMAND")
         if bin_path and os.path.exists(bin_path):
             return bin_path
             
-        # 2. Check system PATH
+        # 2. 检查系统 PATH
         bin_path = shutil.which("inkscape")
         if bin_path:
             return bin_path
             
-        # 3. Common default installation paths
+        # 3. 常见系统默认安装路径
         if os.name == 'nt':  # Windows
             paths = [
                 r"C:\Program Files\Inkscape\bin\inkscape.exe",
@@ -57,18 +59,17 @@ class BatchExportMetadata(inkex.EffectExtension):
 
     def query_visual_bboxes(self, svg_path, node_ids):
         """
-        Use Inkscape CLI --query-all to batch query visual bounding boxes of elements.
-        Visual bounding boxes include stroke and other rendering effects,
-        matching the --export-id export crop area.
+        使用 Inkscape CLI --query-all 批量查询元素的视觉边界框。
+        视觉边界框包含描边等渲染效果，与 --export-id 的导出裁剪区域一致。
 
-        Returns dict {node_id: {'x': x, 'y': y, 'width': w, 'height': h}}
-        Coordinates and dimensions are in SVG user units (px = user unit/page coordinate).
+        返回 dict {node_id: {'x': x, 'y': y, 'width': w, 'height': h}}
+        坐标和尺寸单位为 SVG 用户单位（px = user unit/page coordinate）。
         """
         if not node_ids:
             return None
         inkscape_bin = self.find_inkscape_bin()
-        # On Windows, prefer inkscape.com (console version) because inkscape.exe
-        # may fail to complete queries in a headless environment.
+        # Windows 上优先用 inkscape.com（控制台版本），inkscape.exe 可能在
+        # 无 GUI 环境下无法完成查询
         if os.name == 'nt':
             com_path = os.path.join(os.path.dirname(inkscape_bin), 'inkscape.com')
             if os.path.exists(com_path):
@@ -94,7 +95,7 @@ class BatchExportMetadata(inkex.EffectExtension):
             line = line.strip()
             if not line:
                 continue
-            # Format: "id,x,y,w,h"
+            # 格式: "id,x,y,w,h"
             parts = line.split(',')
             if len(parts) < 5:
                 continue
@@ -113,16 +114,16 @@ class BatchExportMetadata(inkex.EffectExtension):
 
     def is_node_visible(self, node):
         """
-        Check whether a node is visible.
+        检查节点是否为可见状态。
 
-        When Inkscape hides an element via the "eye icon" in the Layers panel,
-        it writes display:none in the style attribute. This also handles the
-        standard SVG visibility and display attributes.
+        Inkscape 在图层面板点击"眼睛图标"隐藏元素时，
+        会在 style 中写入 display:none。同时兼容 SVG
+        标准属性 visibility 和 display。
         """
         if node is None:
             return False
 
-        # 1. Check display and visibility in the style attribute
+        # 1. 检查 style 属性中的 display 和 visibility
         style = node.get('style', '')
         if style:
             if re.search(r'display\s*:\s*none', style, re.IGNORECASE):
@@ -130,12 +131,12 @@ class BatchExportMetadata(inkex.EffectExtension):
             if re.search(r'visibility\s*:\s*(hidden|collapse)', style, re.IGNORECASE):
                 return False
 
-        # 2. Check standalone display attribute
+        # 2. 检查独立 display 属性
         display = node.get('display', '')
         if display and display.lower() == 'none':
             return False
 
-        # 3. Check standalone visibility attribute
+        # 3. 检查独立 visibility 属性
         visibility = node.get('visibility', '')
         if visibility and visibility.lower() in ('hidden', 'collapse'):
             return False
@@ -144,8 +145,8 @@ class BatchExportMetadata(inkex.EffectExtension):
 
     def get_safe_bbox(self, node):
         """
-        Get the geometric bounding box of a node in the SVG root coordinate system
-        (user coordinate system). Used to filter valid export nodes, without stroke expansion.
+        获取节点在 SVG 根坐标系（用户坐标系）中的几何边界框。
+        用于过滤有效导出节点，不使用描边扩展。
         """
         if node is None or not hasattr(node, 'bounding_box'):
             return None
@@ -161,10 +162,10 @@ class BatchExportMetadata(inkex.EffectExtension):
         return bbox_attr
 
     def effect(self):
-        # 1. Intelligently extract selected elements or the active layer
+        # 1. 智能提取选中的元素或活动图层
         selected_elements = []
         if self.svg.selection:
-            # Prefer rendering order from canvas selection
+            # 优先从画布选中项中按渲染顺序提取元素
             if hasattr(self.svg.selection, 'rendering_order'):
                 selected_elements = list(self.svg.selection.rendering_order())
             elif hasattr(self.svg.selection, 'paint_order'):
@@ -172,8 +173,7 @@ class BatchExportMetadata(inkex.EffectExtension):
             else:
                 selected_elements = list(self.svg.selection.values())
         else:
-            # If nothing is selected on the canvas, get the currently active layer
-            # from the Layers panel.
+            # 若画布无选中，则获取用户在图层面板中选中的当前活动图层
             current_layer = None
             if hasattr(self.svg, 'get_current_layer'):
                 current_layer = self.svg.get_current_layer()
@@ -184,36 +184,33 @@ class BatchExportMetadata(inkex.EffectExtension):
                 selected_elements = [current_layer]
 
         if not selected_elements:
-            raise inkex.AbortExtension("Please select the objects to export on the canvas, or select the target layer in the Layers panel.")
+            raise inkex.AbortExtension("请先在画布中选择要导出的对象，或者在图层面板中选中目标图层。")
 
-        # 2. Use the selected top-level nodes directly, filtering out non-drawing
-        #    nodes (e.g., root SvgDocumentElement or metadata defs).
+        # 2. 直接使用选中的顶级节点，过滤掉非绘图节点（如根画布 SvgDocumentElement 或元数据 defs）
         final_elements = []
         seen = set()
         for node in selected_elements:
             node_id = node.get_id()
             if node_id not in seen:
-                # Skip invisible elements (when the "eye icon" in the Layers panel is off)
+                # 跳过不可见的元素（图层面板的"眼睛图标"关闭时）
                 if not self.is_node_visible(node):
                     continue
-                # Must have a valid bounding box to be a valid exportable graphic
+                # 必须拥有能够成功读取的有效 Bounding Box 才是有效导出图形
                 if self.get_safe_bbox(node) is not None:
                     final_elements.append(node)
                     seen.add(node_id)
 
         if not final_elements:
-            raise inkex.AbortExtension("No valid renderable objects found for export. Please select specific shapes on the canvas, or select a layer in the Layers panel (do not select the root canvas directory).")
+            raise inkex.AbortExtension("未找到任何支持导出的有效渲染对象。请先在画布中选中具体的图形，或在图层面板中选中一个图层（不要选中根画布目录）。")
 
-        # Reverse order so export goes from top layer to bottom layer
-        # (matching Krita's layer-stack order).
+        # 翻转排序，使导出顺序从顶层到底层（与 Krita 的 layer-stack 顺序一致）
         final_elements.reverse()
 
-        # 3. Determine document pixel dimensions and the user-unit-to-pixel scale
-        # inkex viewbox_width/bbox returns SVG user units (usually mm),
-        # but Krita/Blender expect pixel coordinates. Use the pixel dimensions
-        # defined in the SVG document width/height attributes
-        # (i.e., the width/height pixel values set in Inkscape's Document Properties).
-        # self.px_per_uu = document pixel width / viewBox user-unit width
+        # 3. 确定文档像素尺寸及用户单位到像素的缩放比
+        # inkex 的 viewbox_width/bbox 返回 SVG 用户单位（通常是 mm），
+        # 而 Krita/Blender 期望像素坐标系。使用 SVG 文档 width/height 属性
+        # 定义的像素尺寸作为依据（即 Inkscape 文档属性中设置的"宽度/高度"像素值）。
+        # self.px_per_uu = 文档像素宽度 / viewBox 用户单位宽度
         doc_width_uu = self.svg.viewbox_width or 1000
         doc_height_uu = self.svg.viewbox_height or 1000
         _vp_w = self.svg.viewport_width if hasattr(self.svg, 'viewport_width') else self.svg.width
@@ -225,19 +222,18 @@ class BatchExportMetadata(inkex.EffectExtension):
         viewbox_width = doc_width_px
         viewbox_height = doc_height_px
 
-        # viewBox/page origin offset (converted to pixels)
+        # viewBox/页面的原点偏移（转换为像素）
         origin_x = (getattr(self.svg, 'viewbox_x', 0) or 0) * self.px_per_uu
         origin_y = (getattr(self.svg, 'viewbox_y', 0) or 0) * self.px_per_uu
 
-        # Get multi-page support list (Inkscape 1.2+)
+        # 获取多页面支持列表 (Inkscape 1.2+)
         pages = []
         if hasattr(self.svg, 'get_pages'):
             pages = self.svg.get_pages()
 
         current_page_idx = 0
         if pages:
-            # Find the page with the greatest overlap with the combined bounding box
-            # of the selected elements.
+            # 通过计算选中元素的联合边界，寻找与之重合度最大的页面作为当前活动页面
             bboxes = [self.get_safe_bbox(el) for el in final_elements]
             bboxes = [b for b in bboxes if b is not None]
             if bboxes:
@@ -256,21 +252,20 @@ class BatchExportMetadata(inkex.EffectExtension):
                                 max_overlap_area = overlap_area
                                 current_page_idx = idx
 
-            # Use the current page dimensions (converted to pixels,
-            # matching Krita's doc.width/height semantics).
+            # 使用当前页面的尺寸（转换为像素，匹配 Krita 中 doc.width/height 的语义）
             if hasattr(self.svg, 'get_page_bbox'):
                 try:
                     page_bbox = self.svg.get_page_bbox(current_page_idx)
                     if page_bbox is not None:
                         viewbox_width = page_bbox.width * self.px_per_uu
                         viewbox_height = page_bbox.height * self.px_per_uu
-                        # Page top-left offset in the SVG root coordinate system (converted to pixels)
+                        # 页面在 SVG 根坐标系中的左上角偏移（转换为像素）
                         origin_x = page_bbox.left * self.px_per_uu
                         origin_y = page_bbox.top * self.px_per_uu
                 except IndexError:
                     pass
 
-        # 4. Determine the export path intelligently
+        # 4. 智能决定保存路径
         raw_path = self.options.export_path
         svg_file_path = self.document_path()
         
@@ -283,28 +278,28 @@ class BatchExportMetadata(inkex.EffectExtension):
             try:
                 os.makedirs(export_path)
             except Exception as e:
-                raise inkex.AbortExtension(f"Could not create export path: {e}")
+                raise inkex.AbortExtension(f"无法创建导出路径: {e}")
 
         sprites_dir = os.path.join(export_path, "sprites")
         if not os.path.exists(sprites_dir):
             try:
                 os.makedirs(sprites_dir)
             except Exception as e:
-                raise inkex.AbortExtension(f"Could not create sprites folder: {e}")
+                raise inkex.AbortExtension(f"无法创建 sprites 文件夹: {e}")
 
-        # 5. Initialize JSON metadata structure
+        # 5. 初始化 JSON 元数据结构
         json_data = OrderedDict()
         json_data["name"] = self.options.export_name
         json_data["nodes"] = []
 
-        # 6. Write a temporary SVG file and export each node
+        # 6. 写入临时 SVG 文件并遍历导出
         temp_svg_path = ""
         try:
             with tempfile.NamedTemporaryFile(suffix=".svg", delete=False) as temp_svg:
                 self.document.write(temp_svg)
                 temp_svg_path = temp_svg.name
 
-            # Batch query Inkscape visual bounding boxes (identical to --export-id crop area)
+            # 批量查询 Inkscape 视觉边界框（与 --export-id 导出区域完全一致）
             node_ids = [node.get_id() for node in final_elements]
             visual_bboxes = self.query_visual_bboxes(temp_svg_path, node_ids)
 
@@ -326,33 +321,57 @@ class BatchExportMetadata(inkex.EffectExtension):
                 filename = f"{clean_name}.{ext}"
                 filepath = os.path.join(sprites_dir, filename)
 
-                # Use Inkscape visual bounding box (identical to --export-id crop area).
-                # --query-all returns (x, y) as the top-left corner of the visual
-                # bounding box in the document coordinate system, in SVG user units
-                # (equivalent to page px).
-                #
-                # For a viewBox starting at (0,0) with no pages, origin_x/origin_y
-                # are 0, so values are used directly. For multi-page scenarios,
-                # the page offset must be subtracted.
+                # 处理重名文件：先导出到 hash 临时文件，再与已有文件比对内容
+                if os.path.exists(filepath):
+                    temp_name = f"_tmp_{uuid.uuid4().hex}.png"
+                    temp_path = os.path.join(sprites_dir, temp_name)
+
+                    self.export_node(temp_svg_path, temp_path, node_id)
+                    self.alpha_fill_png(temp_path)
+
+                    if self._images_match(temp_path, filepath):
+                        # 内容完全相同，复用已有文件，删除临时文件
+                        os.remove(temp_path)
+                    else:
+                        # 内容不同，寻找下一个可用序号
+                        counter = 1
+                        while True:
+                            dedup_name = f"{clean_name}_{counter}.{ext}"
+                            dedup_path = os.path.join(sprites_dir, dedup_name)
+                            if not os.path.exists(dedup_path):
+                                break
+                            counter += 1
+                        os.rename(temp_path, dedup_path)
+                        filename = dedup_name
+                        filepath = dedup_path
+                else:
+                    # 无重名，正常导出
+                    self.export_node(temp_svg_path, filepath, node_id)
+                    self.alpha_fill_png(filepath)
+
+                # 使用 Inkscape 视觉边界框（与 --export-id 的导出裁剪区域完全一致）
+                # --query-all 返回的 x,y 是视觉边界框左上角在文档坐标系中的坐标，
+                # 单位为 SVG 用户单位（等同于 page px）。
+
+                # 对于 viewBox 起始于 (0,0) 的无页面情况，origin_x/origin_y 为 0，
+                # 直接取值即可。对于多页面场景，需减去页面偏移。
                 pos_x = 0.0
                 pos_y = 0.0
                 if visual_bboxes and node_id in visual_bboxes:
                     vb = visual_bboxes[node_id]
-                    # Inkscape uses the SVG viewBox origin as the top-left corner.
-                    # However, in Krita/COA Tools, position uses the document/page
-                    # top-left as the origin. When a page offset exists (origin_x/y != 0),
-                    # correction is needed.
+                    # Inkscape 以 SVG viewBox 原点为左上角。
+                    # 但在 Krita/COA Tools 中，position 以文档/page 左上角为原点。
+                    # 对于有页面偏移（origin_x/y ≠ 0）的情况，需要校正。
                     pos_x = vb['x'] - origin_x
                     pos_y = vb['y'] - origin_y
                 else:
-                    # Fallback to inkex geometric bounding box (no stroke compensation)
+                    # 回退到 inkex 几何边界框（无描边补偿）
                     bbox = self.get_safe_bbox(node)
                     if bbox is not None:
                         pos_x = bbox.left * self.px_per_uu - origin_x
                         pos_y = bbox.top * self.px_per_uu - origin_y
 
-                # Offset is based on viewBox size (matching Krita's offset
-                # based on doc.width/height).
+                # 偏移量基于 viewBox 尺寸（与 Krita 的 offset 基于 doc.width/height 一致）
                 offset_x = int(-viewbox_width / 2)
                 offset_y = int(viewbox_height / 2)
 
@@ -367,8 +386,7 @@ class BatchExportMetadata(inkex.EffectExtension):
                 new_node["rotation"] = 0
                 new_node["scale"] = [1, 1]
                 new_node["opacity"] = [0, 0]
-                # Compute the corresponding Z-index (topmost = largest, bottom = 0,
-                # identical to Krita).
+                # 计算对应的 Z-index (顶层最大，底层为 0，与 Krita 完全相同)
                 new_node["z"] = len(final_elements) - i - 1
                 new_node["tiles_x"] = 1
                 new_node["tiles_y"] = 1
@@ -378,18 +396,13 @@ class BatchExportMetadata(inkex.EffectExtension):
 
                 json_data["nodes"].append(new_node)
 
-                self.export_node(temp_svg_path, filepath, node_id)
-
-                # Fill transparent regions of the exported PNG with color
-                self.alpha_fill_png(filepath)
-
-            # 7. Write JSON metadata file
+            # 7. 写入 JSON 元数据文件
             json_path = os.path.join(export_path, f"{self.options.export_name}.json")
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(json_data, f, indent="\t")
 
         except Exception as e:
-            raise inkex.AbortExtension(f"Error during export: {e}")
+            raise inkex.AbortExtension(f"导出过程中发生错误: {e}")
         finally:
             if temp_svg_path and os.path.exists(temp_svg_path):
                 try:
@@ -399,21 +412,19 @@ class BatchExportMetadata(inkex.EffectExtension):
 
     def alpha_fill_png(self, filepath, threshold=10):
         """
-        Fill transparent regions of an exported PNG with nearby opaque colors.
+        对导出的 PNG 图片执行透明区域颜色填充。
+        使用 BFS 洪泛算法，将透明像素的 RGB 填充为距离最近的非透明像素颜色，
+        同时保留原始 Alpha 通道值不变。
 
-        Uses a BFS flood-fill algorithm to fill transparent pixels' RGB channels
-        with the color of the nearest non-transparent pixel, while preserving the
-        original alpha channel values.
-
-        Reference implementation: img-alpha-fill/index.html
+        参考实现: img-alpha-fill/index.html
         """
         try:
             from PIL import Image
         except ImportError:
             inkex.errormsg(
-                "Warning: Pillow library not found, cannot fill transparent regions.\n"
-                "Run: pip install Pillow\n"
-                "Transparent region color fill will be skipped."
+                "警告: 未找到 Pillow 库，无法执行透明区域颜色填充。\n"
+                "请运行: pip install Pillow\n"
+                "透明区域颜色填充功能将被跳过。"
             )
             return
 
@@ -425,16 +436,16 @@ class BatchExportMetadata(inkex.EffectExtension):
         width, height = img.size
         pixels = img.load()
 
-        # Create result image
+        # 创建结果图像
         result = Image.new('RGBA', (width, height))
         result_pixels = result.load()
 
-        # Copy original pixels
+        # 复制原始像素
         for y in range(height):
             for x in range(width):
                 result_pixels[x, y] = pixels[x, y]
 
-        # BFS initialization: visited=1 means opaque/processed, visited=0 means transparent/unprocessed
+        # BFS 初始化: visited=1 表示不透明/已处理, visited=0 表示透明/未处理
         visited = [[0] * width for _ in range(height)]
         current_queue = []
         next_queue = []
@@ -448,13 +459,13 @@ class BatchExportMetadata(inkex.EffectExtension):
 
         total_pixels = width * height
         if len(current_queue) == 0 or len(current_queue) == total_pixels:
-            # No processing needed
+            # 无需处理
             result.save(filepath, 'PNG')
             img.close()
             result.close()
             return
 
-        # 4-direction BFS flood fill
+        # 4 方向 BFS 洪泛
         offsets = [(0, -1), (0, 1), (-1, 0), (1, 0)]
 
         while current_queue:
@@ -465,14 +476,14 @@ class BatchExportMetadata(inkex.EffectExtension):
                     nx, ny = x + dx, y + dy
 
                     if 0 <= nx < width and 0 <= ny < height and visited[ny][nx] == 0:
-                        result_pixels[nx, ny] = (r, g, b, 255)  # Temporarily set alpha to 255 to mark processed
+                        result_pixels[nx, ny] = (r, g, b, 255)  # 临时置 Alpha 为 255 标记已处理
                         visited[ny][nx] = 1
                         next_queue.append((nx, ny))
 
             current_queue = next_queue
             next_queue = []
 
-        # Restore original alpha channel
+        # 恢复原始 Alpha 通道
         for y in range(height):
             for x in range(width):
                 pr, pg, pb, _ = result_pixels[x, y]
@@ -482,6 +493,37 @@ class BatchExportMetadata(inkex.EffectExtension):
         result.save(filepath, 'PNG')
         img.close()
         result.close()
+
+    def _images_match(self, path1, path2, hash_size=8, threshold=5):
+        """
+        通过感知哈希（phash）比较两张 PNG 是否视觉一致，忽略元数据差异。
+
+        使用 ImageHash 库的 phash 算法计算两张图片的感知哈希，
+        若汉明距离 <= threshold 则判定为视觉相同。
+
+        hash_size 控制 phash 精度（默认 8 → 64 bit hash）。
+        threshold 为汉明距离阈值，两张完全相同的图距离为 0。
+        """
+        try:
+            import imagehash
+            from PIL import Image
+            hash1 = imagehash.phash(Image.open(path1), hash_size=hash_size)
+            hash2 = imagehash.phash(Image.open(path2), hash_size=hash_size)
+            return (hash1 - hash2) <= threshold
+        except ImportError:
+            # ImageHash 不可用 → 回退到像素级比较
+            try:
+                from PIL import Image
+                img1 = Image.open(path1).convert('RGBA')
+                img2 = Image.open(path2).convert('RGBA')
+                if img1.size != img2.size:
+                    return False
+                return img1.tobytes() == img2.tobytes()
+            except ImportError:
+                # PIL 也不可用 → 回退到文件字节比较
+                return filecmp.cmp(path1, path2, shallow=False)
+        except Exception:
+            return False
 
     def export_node(self, svg_file, filepath, node_id):
         kwargs = {
@@ -520,8 +562,8 @@ class BatchExportMetadata(inkex.EffectExtension):
             except Exception as ex:
                 err_msg = ""
                 if hasattr(ex, 'stderr') and ex.stderr:
-                    err_msg = f"\nDetailed error: {ex.stderr.decode('utf-8', errors='ignore')}"
-                inkex.errormsg(f"Failed to export element '{node_id}' to '{filepath}'. {ex}{err_msg}")
+                    err_msg = f"\n详细错误信息: {ex.stderr.decode('utf-8', errors='ignore')}"
+                inkex.errormsg(f"导出元素 '{node_id}' 到 '{filepath}' 失败。{ex}{err_msg}")
 
 if __name__ == "__main__":
     BatchExportMetadata().run()
