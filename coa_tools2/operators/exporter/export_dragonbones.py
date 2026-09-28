@@ -798,6 +798,23 @@ def get_driver_bone_target(driver):
     return targets
 
 
+def repair_singular_matrix(mat):
+    ### a matrix becomes singular (det == 0) when a bone has a scale of 0 on
+    ### any axis (e.g. zero scale keyframes or constraints collapsing a bone).
+    ### zero scale components get nudged to 1e-5, so the matrix can be inverted
+    ### and decomposed without failing the whole export.
+    if abs(mat.determinant()) > 1e-12:
+        return mat
+    loc, rot, sca = mat.decompose()
+    sca = Vector((v if v != 0 else 1e-5 for v in sca))
+    return Matrix.Translation(loc) @ rot.to_matrix().to_4x4() @ Matrix.Diagonal(sca).to_4x4()
+
+
+def safe_invert_matrix(mat):
+    ### invert a matrix with protection against singular matrices (det == 0)
+    return repair_singular_matrix(mat).inverted()
+
+
 def get_bone_matrix(armature, bone, relative=True):
     pose_bone = armature.pose.bones[bone.name]
 
@@ -815,11 +832,14 @@ def get_bone_matrix(armature, bone, relative=True):
             # mat_bone_space = pose_bone.parent.matrix.inverted() @ pose_bone.matrix
             mat_bone_space = pose_bone.matrix
             for parent in pose_bone.parent_recursive:
-                pose_bone_matrix = parent.matrix.inverted() @ mat_bone_space
-                mat_bone_space = pose_bone.parent.matrix.inverted() @ pose_bone.matrix
+                pose_bone_matrix = safe_invert_matrix(parent.matrix) @ mat_bone_space
+                mat_bone_space = (
+                    safe_invert_matrix(pose_bone.parent.matrix) @ pose_bone.matrix
+                )
         else:
             mat_bone_space = m @ pose_bone.matrix
     #### remap matrix
+    mat_bone_space = repair_singular_matrix(mat_bone_space)
     loc, rot, scale = mat_bone_space.decompose()
 
     # if not bone.use_inherit_scale:
@@ -1094,6 +1114,28 @@ def get_z_order(self, slot):
     return -1
 
 
+def nudge_zero_scale_bones(armatures):
+    ### pose bones with a scale of 0 on any axis produce singular matrices
+    ### during export. temporarily nudge those components to 1e-5.
+    ### returns a backup list to restore the original scales afterwards.
+    backup = []
+    for armature in armatures:
+        if armature == None:
+            continue
+        for pbone in armature.pose.bones:
+            sca = pbone.scale
+            if sca[0] == 0 or sca[1] == 0 or sca[2] == 0:
+                backup.append((pbone, tuple(sca)))
+                pbone.scale = [v if v != 0 else 1e-5 for v in sca]
+    return backup
+
+
+def restore_zero_scale_bones(backup):
+    ### restore the original scales of bones nudged by nudge_zero_scale_bones
+    for pbone, sca in backup:
+        pbone.scale = sca
+
+
 def get_animation_data(self, sprite_object, armature, armature_orig):
     context = bpy.context
     scale = 1 / get_addon_prefs(context).sprite_import_export_scale
@@ -1241,6 +1283,10 @@ def get_animation_data(self, sprite_object, armature, armature_orig):
             for i in range(anim.frame_end + 1):
                 frame = anim.frame_end - i
                 context.scene.frame_set(frame)
+
+                ### temporarily nudge zero scale bones to 1e-5 to avoid
+                ### singular matrices during this frame's export
+                zero_scale_backup = nudge_zero_scale_bones([armature, armature_orig])
 
                 #### HANDLE SLOT ANIMATION
                 j = 0
@@ -1643,6 +1689,9 @@ def get_animation_data(self, sprite_object, armature, armature_orig):
                                             "vertices"
                                         ]
                             j += 1
+
+                ### restore the original scales of the nudged zero scale bones
+                restore_zero_scale_bones(zero_scale_backup)
 
             ### cleanup animation data
             delete_keys = []
