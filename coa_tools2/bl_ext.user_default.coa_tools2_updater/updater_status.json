@@ -1,0 +1,16 @@
+{
+    "last_check": "2026-10-13 23:10:31.445075",
+    "backup_date": "",
+    "update_ready": true,
+    "ignore": false,
+    "just_restored": false,
+    "just_updated": false,
+    "version_text": {
+        "link": "https://api.github.com/repos/Aodaruma/coa_tools2/zipball/refs/tags/v2.3.0",
+        "version": [
+            2,
+            3,
+            0
+        ]
+    }
+}

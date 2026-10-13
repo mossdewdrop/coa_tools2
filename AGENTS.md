@@ -52,19 +52,19 @@ Behavior:
 
 ## Codex Issue Fix Workflow
 
-このリポジトリで GitHub issue を並列修正する場合は、以下を基本手順にする。
+在此仓库中并行修复 GitHub issue 时，请遵循以下基本步骤。
 
-- 先に GitHub issues と Project `coa_tools2 tasks` を確認し、重要度・衝突リスク・検証容易性で作業順を決める。
-- issue ごとに 1 worktree / 1 branch を割り当てる。
-- branch は通常 `develop` 起点で `codex/issue-<番号>-<短い説明>` を作る。`master` 向けは release / hotfix だけにする。
-- 古い issue branch がある場合も、そのまま作業せず、現在の `develop` 起点 branch から必要な差分だけ参照する。
-- subagent を使う場合は、担当 worktree、対象 issue、編集してよい範囲、検証条件、コミット方針を明示する。
-- subagent には「他 agent も同時に作業しているため、別 worktree や他者の変更を戻さない」と必ず伝える。
-- 現在の subagent tool で `gpt-4.5` を指定できない場合は model override を省略し、`reasoning_effort` を `high` または `xhigh` にする。
-- DCC 実機検証（Blender / Krita / GIMP）は main agent が直列で行う。GUI やユーザー設定を同時に触る検証は subagent に並列実行させない。
-- PR はユーザーが明示した場合を除き draft にせず、通常の ready for review として作成する。
-- PR title / body は英語で書く。内部メモやユーザー向け報告は日本語でよい。
-- GitHub PR body は `--body-file` を使い、PowerShell で `\n` がリテラル化しないようにする。
-- 完全に修正できた issue は `Fixes #...`、部分修正や関連確認は `Refs #...` を使う。
-- PR 作成後は、対応 issue と PR の Project Status を `In review` にする。
-- Krita / GIMP のユーザー plugin フォルダを検証で触る場合は、必ず事前バックアップし、検証後に元へ戻す。
+- 首先查看 GitHub issues 和 Project `coa_tools2 tasks`，根据重要程度、冲突风险和验证难易度确定工作顺序。
+- 每个 issue 分配 1 个 worktree / 1 个 branch。
+- branch 通常以 `develop` 为起点，命名为 `codex/issue-<编号>-<简短说明>`。仅 release / hotfix 面向 `master`。
+- 即使存在旧的 issue branch，也不要直接在其上作业，而是从当前的 `develop` 起点 branch 中仅参考所需差异。
+- 使用 subagent 时，需明确指定负责的 worktree、目标 issue、可编辑范围、验证条件和提交方针。
+- 务必告知 subagent「由于其他 agent 也在同时作业，请勿还原其他 worktree 或他人的更改」。
+- 若当前 subagent tool 无法指定 `gpt-4.5`，则省略 model override，将 `reasoning_effort` 设为 `high` 或 `xhigh`。
+- DCC 实机验证（Blender / Krita / GIMP）由 main agent 串行执行。涉及 GUI 或用户设置同时操作的验证，请勿让 subagent 并行执行。
+- 除用户明确要求外，PR 不要设为 draft，应作为普通的 ready for review 创建。
+- PR title / body 用英文撰写。内部备忘录或面向用户的报告可用中文。
+- GitHub PR body 请使用 `--body-file`，并在 PowerShell 中避免 `\n` 被字面化。
+- 完全修复的 issue 使用 `Fixes #...`，部分修复或相关确认使用 `Refs #...`。
+- PR 创建后，将对应 issue 和 PR 的 Project Status 设为 `In review`。
+- 若验证中需要操作 Krita / GIMP 的用户 plugin 文件夹，务必事先备份，验证后恢复原状。

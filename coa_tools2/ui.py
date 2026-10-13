@@ -237,7 +237,14 @@ class COATOOLS2_PT_ObjectProperties(bpy.types.Panel):
             elif obj.type == "LAMP":
                 icon = "LAMP"
 
-            col.prop(obj, "name", text="", icon=icon)
+            name_row = col.row(align=True)
+            name_row.prop(obj, "name", text="", icon=icon)
+            if obj == sprite_object:
+                name_row.operator(
+                    "coa_tools2.rename_sprite_object",
+                    text="",
+                    icon="GREASEPENCIL",
+                )
             if obj.type == "MESH" and obj.coa_tools2.type == "SLOT":
                 index = functions.get_clamped_slot_index(obj)
                 if index is not None:
@@ -812,11 +819,12 @@ class COATOOLS2_PT_Tools(bpy.types.Panel):
             row.label(text="Mesh Tools:")
 
             row = layout.row(align=True)
-            operator = row.operator(
-                "coa_tools2.generate_mesh_from_edges_and_verts",
-                text="Generate Mesh",
-                icon="OUTLINER_OB_SURFACE",
-            )
+            # original "Generate Mesh" (manual contour fill) hidden in favour of Auto Generate
+            # operator = row.operator(
+            #     "coa_tools2.generate_mesh_from_edges_and_verts",
+            #     text="Generate Mesh",
+            #     icon="OUTLINER_OB_SURFACE",
+            # )
 
             col = layout.column(align=True)
 
@@ -841,6 +849,26 @@ class COATOOLS2_PT_Tools(bpy.types.Panel):
                     text="Snap Vertices",
                     icon="SNAP_OFF",
                 )
+
+            col = layout.column(align=True)
+            alpha_mesh_settings = getattr(scene, "coa_tools2_alpha_mesh", None)
+            if alpha_mesh_settings is not None:
+                box = col.box()
+                box.label(text="Auto Generate (from Alpha)")
+                box.operator(
+                    "coa_tools2.alpha_mesh_auto",
+                    text="Auto",
+                    icon="MESH_GRID",
+                )
+                box_col = box.column(align=True)
+                box_col.prop(alpha_mesh_settings, "alpha_threshold")
+                box_col.prop(alpha_mesh_settings, "target_distance")
+                box_col.prop(alpha_mesh_settings, "long_edge_factor")
+                box_col.prop(alpha_mesh_settings, "winsorize_lim")
+                box_col.prop(alpha_mesh_settings, "dilation_size")
+                box_col.prop(alpha_mesh_settings, "fill_spacing_px")
+                box_col.prop(alpha_mesh_settings, "max_points")
+                box_col.prop(alpha_mesh_settings, "seed")
 
             col = layout.column(align=True)
             operator = col.operator("mesh.knife_tool", text="Knife")

@@ -66,6 +66,7 @@ from .operators import draw_bone_shape
 from .operators import edit_armature
 from .operators import edit_mesh
 from .operators import automesh
+from .operators import alpha_mesh
 from .operators import edit_shapekey
 from .operators import edit_weights
 from .operators import import_sprites
@@ -233,6 +234,7 @@ classes = (
     edit_mesh.COATOOLS2_OT_PickEdgeLength,
     copy_mesh_data.COATOOLS2_OT_CopyMeshData,
     automesh.COATOOLS2_OT_AutomeshFromTexture,
+    alpha_mesh.COATOOLS2_OT_AlphaMeshAuto,
     edit_armature.COATOOLS2_OT_TooglePoseMode,
     edit_armature.COATOOLS2_OT_BindMeshToBones,
     edit_armature.COATOOLS2_OT_QuickArmature,
@@ -261,6 +263,7 @@ classes = (
     animation_handling.COATOOLS2_OT_RemoveEvent,
     animation_handling.COATOOLS2_OT_AddTimelineEvent,
     animation_handling.COATOOLS2_OT_RemoveTimelineEvent,
+    animation_handling.COATOOLS2_OT_RenameSpriteObject,
     create_ortho_cam.COATOOLS2_OT_CreateOrtpographicCamera,
     create_ortho_cam.COATOOLS2_OT_AlignCamera,
     create_spritesheet_preview.COATOOLS2_OT_SelectFrameThumb,
@@ -462,6 +465,7 @@ def register():
 
     # register props and keymap
     props.register()
+    alpha_mesh.register()
     register_keymaps()
 
     # create handler
@@ -487,6 +491,7 @@ def unregister():
 
     # unregisters props and keymap
     props.unregister()
+    alpha_mesh.unregister()
     unregister_keymaps()
 
     # delete handler
