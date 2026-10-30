@@ -819,12 +819,11 @@ class COATOOLS2_PT_Tools(bpy.types.Panel):
             row.label(text="Mesh Tools:")
 
             row = layout.row(align=True)
-            # original "Generate Mesh" (manual contour fill) hidden in favour of Auto Generate
-            # operator = row.operator(
-            #     "coa_tools2.generate_mesh_from_edges_and_verts",
-            #     text="Generate Mesh",
-            #     icon="OUTLINER_OB_SURFACE",
-            # )
+            row.operator(
+                "coa_tools2.generate_mesh_from_edges_and_verts",
+                text="Generate Mesh",
+                icon="OUTLINER_OB_SURFACE",
+            )
 
             col = layout.column(align=True)
 
